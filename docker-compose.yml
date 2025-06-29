@@ -173,6 +173,7 @@ services:
         - "traefik.http.services.webmail.loadbalancer.server.port=21000"
         - "traefik.http.routers.webmail.middlewares=strip-roundcube@docker"
         - "traefik.http.middlewares.strip-roundcube.stripprefix.prefixes=/roundcube"
+        - "traefik.http.routers.webmail.priority: '2'"
       restart: always
       networks:
         billionmail-network:
@@ -207,6 +208,7 @@ services:
         - "traefik.http.routers.core-mail.entrypoints=websecure"
         - "traefik.http.routers.core-mail.tls.certresolver=myresolver"
         - "traefik.http.services.core-mail.loadbalancer.server.port=20000"
+        - "traefik.http.routers.core-mail.priority: '1'"
         - "traefik.docker.network=traefik"  
 
         

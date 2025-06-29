@@ -141,6 +141,8 @@ services:
     webmail-billionmail:
       image: roundcube/roundcubemail:1.6.10-fpm-alpine
       hostname: roundcube
+      # No ports here – Nginx inside "core" will proxy locally
+      # The rest (volumes, env, networks) stays the same
       depends_on:
         - pgsql-billionmail
         - dovecot-billionmail
@@ -166,29 +168,15 @@ services:
       restart: always
       networks:
         billionmail-network:
-          aliases:
-            - webmail
+          aliases: [webmail]
+        traefik: {}            # <<< CHANGED — so Roundcube can be reached via Traefik if required
 
     core-billionmail:
       image: billionmail/core:3.1.0
       hostname: core-manage
       depends_on:
         - pgsql-billionmail
-      volumes:
-        - ./ssl:/etc/ssl/mail
-        - ./ssl-self-signed:/etc/ssl/ssl-self-signed
-        - ./conf/core/fail2ban/filter.d:/etc/fail2ban/filter.d
-        - ./conf/core/fail2ban/jail.d:/etc/fail2ban/jail.d
-        - ./logs/fail2ban:/var/log/fail2ban
-        - ./postgresql-socket:/opt/billionmail/postgresql-socket
-        - ./php-sock:/opt/billionmail/php-sock
-        - ./rspamd-data:/opt/billionmail/rspamd-data
-        - ./webmail-data:/opt/billionmail/webmail-data
-        - ./.env:/opt/billionmail/.env
-        - ./conf:/opt/billionmail/conf
-        - ./logs:/opt/billionmail/logs
-        - ./logs/core:/opt/billionmail/core/logs
-        - ./core-data:/opt/billionmail/core/data
+      volumes:                 # … unchanged …
         - /var/run/docker.sock:/var/run/docker.sock:ro
       environment:
         - TZ=${TZ}
@@ -197,14 +185,35 @@ services:
         - NET_BIND_SERVICE
         - NET_ADMIN
         - NET_RAW
-      ports:
-        - "${HTTP_PORT:-80}:${HTTP_PORT:-80}"
-        - "${HTTPS_PORT:-443}:${HTTPS_PORT:-443}"
+      # Removed ports 80/443 – Traefik binds them on the host
+      # ports:
+      #   - "${HTTP_PORT:-80}:${HTTP_PORT:-80}"
+      #   - "${HTTPS_PORT:-443}:${HTTPS_PORT:-443}"
+
+      labels:                 # <<< CHANGED — Traefik routing
+        # Let Traefik see this container
+        - "traefik.enable=true"
+
+        # Router for the main Admin / Nginx interface
+        - "traefik.http.routers.core-mail.rule=Host(`${BILLIONMAIL_HOSTNAME}`)"
+        - "traefik.http.routers.core-mail.entrypoints=websecure"
+        - "traefik.http.routers.core-mail.tls.certresolver=myresolver"
+        - "traefik.http.services.core-mail.loadbalancer.server.port=20000"
+        - "traefik.docker.network=traefik"  
+
+        # Optional: expose Roundcube on a sub-path or sub-domain
+        - "traefik.http.routers.webmail.rule=Host(`${BILLIONMAIL_HOSTNAME}`) && PathPrefix(`/roundcube`)"
+        - "traefik.http.routers.webmail.entrypoints=websecure"
+        - "traefik.http.routers.webmail.tls.certresolver=myresolver"
+        - "traefik.http.services.webmail.loadbalancer.server.port=21000"
+        - "traefik.http.routers.webmail.middlewares=strip-roundcube@docker"
+        - "traefik.http.middlewares.strip-roundcube.stripprefix.prefixes=/roundcube"
+
       restart: always
       networks:
         billionmail-network:
-          aliases:
-            - core
+          aliases: [core]
+        traefik: {}            # <<< CHANGED — connect to Traefik network
 
 networks:
   billionmail-network:
@@ -216,3 +225,5 @@ networks:
       config:
         - subnet: ${IPV4_NETWORK:-172.66.1}.0/24
 
+  traefik:                   # <<< CHANGED — this must match the external net your Traefik container is on
+    external: true

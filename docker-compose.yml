@@ -166,14 +166,14 @@ services:
         - ROUNDCUBEMAIL_SMTP_PORT=${SMTP_PORT:-25}
         - ROUNDCUBEMAIL_REQUEST_PATH=/roundcube
 
-      labels:                 
-        - "traefik.http.routers.webmail.rule=Host(`mail.kognifi.ai`) && PathPrefix(`/roundcube`)"
-        - "traefik.http.routers.webmail.entrypoints=websecure"
-        - "traefik.http.routers.webmail.tls.certresolver=myresolver"
-        - "traefik.http.services.webmail.loadbalancer.server.port=21000"
-        - "traefik.http.routers.webmail.middlewares=strip-roundcube@docker"
-        - "traefik.http.middlewares.strip-roundcube.stripprefix.prefixes=/roundcube"
-        - "traefik.http.routers.webmail.priority: '2'"
+      # labels:                 
+      #   - "traefik.http.routers.webmail.rule=Host(`mail.kognifi.ai`) && PathPrefix(`/roundcube`)"
+      #   - "traefik.http.routers.webmail.entrypoints=websecure"
+      #   - "traefik.http.routers.webmail.tls.certresolver=myresolver"
+      #   - "traefik.http.services.webmail.loadbalancer.server.port=21000"
+      #   - "traefik.http.routers.webmail.middlewares=strip-roundcube@docker"
+      #   - "traefik.http.middlewares.strip-roundcube.stripprefix.prefixes=/roundcube"
+      #   - "traefik.http.routers.webmail.priority: '2'"
       restart: always
       networks:
         billionmail-network:
